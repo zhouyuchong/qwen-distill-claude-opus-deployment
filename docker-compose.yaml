@@ -24,7 +24,7 @@ services:
     # 卷挂载
     volumes:
       # 项目代码挂载
-      - .:/workspace/project:ro
+      - .:/root/workspace/project
       
       # 模型目录（直接挂载你已有的模型）
       - /home/damonzzz/models/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled:/workspace/models
@@ -33,7 +33,7 @@ services:
       - hf-cache:/root/.cache/huggingface
       
       # 日志目录
-      - ./logs:/workspace/logs
+      - ./logs:/root/workspace/logs
     
     # 环境变量
     environment:
@@ -48,7 +48,7 @@ services:
       - HF_TRUST_REMOTE_CODE=true
     
     # 工作目录
-    working_dir: /workspace/project
+    working_dir: /root/workspace/project
 
     command: tail -f /dev/null
 
