@@ -1,9 +1,10 @@
 # Core inference runtime
-vllm==0.17.0
+vllm==0.18.1
 torch==2.10.0
 torchaudio==2.10.0
 torchvision==0.25.0
 transformers==5.3.0
+bitsandbytes==0.46.1
 
 # Web framework & API
 fastapi==0.135.1
@@ -32,14 +33,14 @@ nvidia-nvjitlink-cu12==12.8.93
 
 # ML frameworks
 triton==3.6.0
-xformers==0.0.29.post2
+xformers
 accelerate==1.13.0
 safetensors==0.7.0
-flashinfer-python==0.6.4
-huggingface_hub==1.6.0
+# flashinfer-python==0.6.4  # 与 vllm 0.17.0 + transformers 4.56.0 冲突
+huggingface_hub
 
 # Supporting libraries
-numpy==2.4.3
+numpy>=2.0,<2.3
 scipy==1.17.1
 pillow==12.1.1
 pyyaml==6.0.3

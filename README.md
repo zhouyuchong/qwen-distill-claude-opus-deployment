@@ -1,50 +1,70 @@
+<!--
+ * @Author: zhouyuchong
+ * @Date: 2026-03-30 17:17:23
+ * @Description: 
+ * @LastEditors: zhouyuchong
+ * @LastEditTime: 2026-04-08 15:10:00
+ -->
 # qwen-distill-claude-opus-deployment
 
-Scripts for deploying [Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled](https://huggingface.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled)
+Scripts for deploying [Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled](https://huggingface.co/Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled)
 
-## Create Conda env
-```
-conda create -p /path-to-conda-env python=3.11
-conda activate /path-to-conda-envs
-```
+## Environment
 
-## Conda Environment Dependencies
-install the requirements.  
-- run `pip install -r requirements.txt`
-- For all details of my configuration, see [my-conda-env-dump-details.md](./my-conda-env-dump-details.md)
+- GPU: RTX 3060 (12GB)
+- Model: Qwen3.5-9B (4bit quantized)
+- CUDA: 12.8
+- PyTorch: 2.10.0
 
-## Installation
-Download [weight files](https://huggingface.co/Jackrong/Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled/discussions) to `/path-to-weight`, from which you see:
-```
-- /path-to-weight
-  - .gitattributes
-  - README.md
-  - chat_template.jinja
-  - config.json
-  - model.safetensors-00001-of-00011.safetensors
-  - ...
-```
+## Performance
 
-## Start vllm and proxy
-Start a command tab.
-```
-conda activate /path-to-conda-envs
-bash start_vllm.sh
+| Context Length | Throughput |
+|----------------|------------|
+| ~350 tokens    | ~10 tok/s  |
+| ~1700 tokens   | ~9 tok/s   |
+
+RTX 3060 建议上下文控制在 10000 tokens 以内。
+
+## Scripts
+
+### chat.py - 多轮对话
+
+```bash
+python chat.py
 ```
 
-Start another command tab.
-```
-conda activate /path-to-conda-envs
-bash start_proxy.sh
+功能：
+- 多轮上下文对话
+- 输入/输出 token 数量显示
+- 上下文剩余百分比显示
+- 动态 max_new_tokens (根据剩余上下文空间调整)
+- GPU 显存监控
+
+命令：
+- `quit` - 退出
+- `clear` - 清空上下文
+
+### test_context.py - 上下文长度测试
+
+```bash
+cd /workspace/project
+python test_context.py --mode both --output test.log
 ```
 
-vi ~/.claude/settings.json(fill in your IP).
+参数：
+- `--mode throughput` - 吞吐量测试
+- `--mode max_context` - 最大上下文测试
+- `--mode both` - 两者都运行
+- `--output <file>` - 日志输出路径
+
+### demo.py - 单次对话
+
+```bash
+python demo.py --prompt "your prompt"
 ```
-{
-  "env": {
-    "ANTHROPIC_BASE_URL": "http://{your ip}:8800",
-    "ANTHROPIC_AUTH_TOKEN": "sk-placeholder",
-    "ANTHROPIC_MODEL": "Qwen3.5-27B-Opus"
-  },
-}
-```
+
+## Model Path
+
+模型路径：`/workspace/models`
+
+需要修改脚本中的 `MODEL_PATH` 或通过 `--model_path` 参数指定。

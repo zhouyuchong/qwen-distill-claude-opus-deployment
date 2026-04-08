@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  qwen:
+    # 使用纯 Python 3.11 镜像 + NVIDIA Container Toolkit
+    image: python:3.11-slim
+    container_name: qwen3.5-server
+    restart: unless-stopped
+    
+    # 双卡 GPU 支持
+    deploy: 
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+              # device_ids: [0, 1]
+    
+    # 端口映射
+    ports:
+      - "23336:23336"   # vllm OpenAI 兼容 API
+    
+    # 卷挂载
+    volumes:
+      # 项目代码挂载
+      - .:/workspace/project:ro
+      
+      # 模型目录（直接挂载你已有的模型）
+      - /home/damonzzz/models/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled:/workspace/models
+      
+      # Hugging Face 缓存
+      - hf-cache:/root/.cache/huggingface
+      
+      # 日志目录
+      - ./logs:/workspace/logs
+    
+    # 环境变量
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - VLLM_ALLOW_LONG_MAX_MODEL_LEN=1
+      # - VLLM_ATTENTION_BACKEND=FLASH_ATTN
+      - CUDA_VISIBLE_DEVICES=0
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+      # CUDA 兼容模式：解决驱动版本低于容器 CUDA 版本的问题
+      - VLLM_ENABLE_CUDA_COMPATIBILITY=1
+      - TRUST_REMOTE_CODE=true
+      - HF_TRUST_REMOTE_CODE=true
+    
+    # 工作目录
+    working_dir: /workspace/project
+
+    command: tail -f /dev/null
+
+
+# 命名卷
+volumes:
+  hf-cache:
+    driver: local
