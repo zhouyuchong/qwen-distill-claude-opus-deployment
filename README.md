@@ -104,4 +104,15 @@ pip install -r requirements.txt
 
 ## Dataset
 
-NekoQA-10K 猫娘对话数据集用于微调，位于 `data/NekoQA-10K/` 目录。
+[NekoQA-10K](https://huggingface.co/datasets/MindsRiverPonder/NekoQA-10K) 猫娘对话数据集用于微调。
+
+**数据集需要自行下载：**
+```bash
+# 方法1: 使用 huggingface-cli
+huggingface-cli download --repo-type dataset MindsRiverPonder/NekoQA-10K --local-dir data/NekoQA-10K
+
+# 方法2: 手动下载
+# https://huggingface.co/datasets/MindsRiverPonder/NekoQA-10K
+```
+
+下载后将数据集放在 `data/NekoQA-10K/` 目录。
