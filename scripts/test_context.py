@@ -1,14 +1,21 @@
 """
-RTX 3060 + Qwen3.5-9B Context Length & Performance Test
+RTX 3060 + Qwen3.5 Context Length & Performance Test
 """
 import argparse
 import torch
 import time
 import sys
+import os
 from datetime import datetime
 from transformers import Qwen3_5ForConditionalGeneration, AutoProcessor, BitsAndBytesConfig
 from PIL import Image
 import pynvml
+
+
+MODEL_SELECTION = {
+    "4B": "/root/workspace/models/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-v2",
+    "9B": "/root/workspace/models/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled",
+}
 
 
 class OutputLogger:
@@ -34,9 +41,6 @@ class OutputLogger:
         self.file.close()
 
 
-MODEL_PATH = "/workspace/models"
-
-
 def get_memory_stats():
     stats = {}
     if torch.cuda.is_available():
@@ -54,9 +58,9 @@ def get_memory_stats():
     return stats
 
 
-def load_model():
-    print("Loading model...")
-    processor = AutoProcessor.from_pretrained(MODEL_PATH, trust_remote_code=True, local_files_only=True)
+def load_model(model_path):
+    print(f"Loading model from {model_path}...")
+    processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True, local_files_only=True)
     
     quantization_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -66,7 +70,7 @@ def load_model():
     )
     
     model = Qwen3_5ForConditionalGeneration.from_pretrained(
-        MODEL_PATH,
+        model_path,
         torch_dtype=torch.float16,
         device_map={"": "cuda:0"},
         trust_remote_code=True,
@@ -128,45 +132,46 @@ def test_context_length(model, processor, num_turns=5, tokens_per_turn=256):
         return False, input_len, 0
 
 
-def find_max_context(model, processor, max_turns=20):
+def find_max_context(model, processor, model_name="4B"):
     print("=== Finding Max Context Length ===\n")
     
     test_cases = [
-        (5, 512),
         (10, 512),
-        (15, 512),
         (20, 512),
-        (25, 512),
         (30, 512),
-        (35, 512),
         (40, 512),
         (50, 512),
-        (60, 256),
-        (80, 256),
-        (100, 128),
+        (60, 512),
+        (80, 512),
+        (100, 512),
+        (120, 256),
+        (150, 256),
+        (200, 128),
     ]
     
     for turns, tokens in test_cases:
         print(f">>> Testing {turns} turns, {tokens} tokens/turn")
         success, input_len, throughput = test_context_length(model, processor, turns, tokens)
         if not success:
-            print(f"\nMAX REACHED: ~{turns-5} turns, ~{input_len} tokens context")
-            return turns - 5, input_len
+            print(f"\nMAX REACHED: ~{turns-10} turns, ~{input_len} tokens context")
+            return turns - 10, input_len
         time.sleep(0.5)
     
-    return max_turns, 0
+    return 200, 0
 
 
-def benchmark_throughput_by_context(model, processor):
+def benchmark_throughput_by_context(model, processor, model_name="4B"):
     print("=== Throughput vs Context Length ===\n")
     
     test_cases = [
         (0, 512),
-        (1, 512),
-        (3, 512),
         (5, 512),
-        (10, 256),
-        (15, 128),
+        (10, 512),
+        (20, 512),
+        (30, 256),
+        (50, 256),
+        (80, 128),
+        (100, 128),
     ]
     
     results = []
@@ -212,28 +217,44 @@ def benchmark_throughput_by_context(model, processor):
 def main():
     parser = argparse.ArgumentParser(description="Context Length & Performance Test")
     parser.add_argument("--mode", type=str, default="both", choices=["max_context", "throughput", "both"])
-    parser.add_argument("--model_path", type=str, default=MODEL_PATH)
-    parser.add_argument("--output", type=str, default=None)
+    parser.add_argument("--model", type=str, default="4B", choices=["4B", "9B"], help="模型大小 (默认 4B)")
+    parser.add_argument("--model_path", type=str, default=None, help="模型路径（优先于 --model）")
     args = parser.parse_args()
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = args.output or f"/root/results/test_context_{timestamp}.log"
+    model_path = args.model_path if args.model_path else MODEL_SELECTION[args.model]
+    model_name = args.model
+    timestamp = datetime.now().strftime("%Y%m%d")
     
+    os.makedirs("./docs", exist_ok=True)
+    
+    mode_suffix = args.mode if args.mode != "both" else "full"
+    output_file = f"./docs/{model_name}_{timestamp}_{mode_suffix}.md"
+    
+    print(f"Using model: {model_name} -> {model_path}")
     print(f"Logging to: {output_file}\n")
     
     with OutputLogger(output_file):
-        print(f"=== Context Test Log {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+        print(f"# {model_name} Context Test Report\n")
+        print(f"**Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"**Model**: {model_path}\n")
         
-        model, processor = load_model()
+        model, processor = load_model(model_path)
         
         if args.mode in ["max_context", "both"]:
-            find_max_context(model, processor)
+            print("\n## Max Context Test\n")
+            max_turns, max_tokens = find_max_context(model, processor, model_name)
+            print(f"\n**Result**: ~{max_turns} turns, ~{max_tokens} tokens")
         
         if args.mode in ["throughput", "both"]:
-            benchmark_throughput_by_context(model, processor)
+            print("\n## Throughput vs Context Length\n")
+            results = benchmark_throughput_by_context(model, processor, model_name)
+            print("\n| Context (tokens) | Throughput (tok/s) |")
+            print("|------------------|-------------------|")
+            for ctx, tp in results:
+                print(f"| {ctx} | {tp:.2f} |")
         
-        print("\n=== Summary ===")
-        print("Recommend keeping context under ~16K tokens for stable performance on RTX 3060 12GB")
+        print("\n## Summary")
+        print(f"Max context: ~{max_tokens} tokens" if args.mode == "both" else "")
 
 
 if __name__ == "__main__":

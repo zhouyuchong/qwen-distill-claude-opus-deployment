@@ -1,10 +1,3 @@
-<!--
- * @Author: zhouyuchong
- * @Date: 2026-03-30 17:17:23
- * @Description: 
- * @LastEditors: zhouyuchong
- * @LastEditTime: 2026-04-09 09:41:15
- -->
 # qwen-distill-claude-opus-deployment
 
 Scripts for deploying [Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled](https://huggingface.co/Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled)
@@ -27,10 +20,12 @@ RTX 3060 建议上下文控制在 10000 tokens 以内。
 
 ## Scripts
 
+所有脚本位于 `scripts/` 目录下。
+
 ### chat.py - 多轮对话
 
 ```bash
-python chat.py
+python scripts/chat.py
 ```
 
 功能：
@@ -42,13 +37,49 @@ python chat.py
 
 命令：
 - `quit` - 退出
-- `clear` - 清空上下文
+- `/new` - 开始新一轮对话
+
+### demo.py - 单次对话
+
+```bash
+python scripts/demo.py --prompt "your prompt"
+```
+
+### finetune.py - NekoQA-10K 微调
+
+```bash
+# 安装额外依赖
+pip install datasets peft
+
+# LoRA 微调 (推荐，显存占用小)
+python scripts/finetune.py --model 4B --use_lora
+
+# 全参数微调 (需要更多显存)
+python scripts/finetune.py --model 4B --bf16
+```
+
+参数：
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--model` | 4B | 模型大小 (4B/9B) |
+| `--model_path` | - | 自定义模型路径 |
+| `--data_dir` | data/NekoQA-10K | 数据集目录 |
+| `--output_dir` | ./output/nekoqa-finetune | 输出目录 |
+| `--max_seq_length` | 1024 | 最大序列长度 |
+| `--num_train_epochs` | 3 | 训练轮数 |
+| `--per_device_train_batch_size` | 1 | 每设备 batch size |
+| `--gradient_accumulation_steps` | 8 | 梯度累积步数 |
+| `--learning_rate` | 1e-4 | 学习率 |
+| `--use_lora` | False | 使用 LoRA 微调 |
+| `--lora_rank` | 8 | LoRA rank |
+| `--lora_alpha` | 16 | LoRA alpha |
+| `--lora_target_modules` | all | LoRA 目标模块 |
 
 ### test_context.py - 上下文长度测试
 
 ```bash
 cd /workspace/project
-python test_context.py --mode both --output test.log
+python scripts/test_context.py --mode both --output test.log
 ```
 
 参数：
@@ -57,17 +88,20 @@ python test_context.py --mode both --output test.log
 - `--mode both` - 两者都运行
 - `--output <file>` - 日志输出路径
 
-### demo.py - 单次对话
-
-```bash
-python demo.py --prompt "your prompt"
-```
-
 ## Model Path
 
-模型路径：`/workspace/models`
+模型路径：`/root/models`
 
 需要修改脚本中的 `MODEL_PATH` 或通过 `--model_path` 参数指定。
 
+## Dependencies
 
-使用vllm时，需要apt install build-essential
+```bash
+pip install -r requirements.txt
+```
+
+使用 vllm 时，需要 apt install build-essential
+
+## Dataset
+
+NekoQA-10K 猫娘对话数据集用于微调，位于 `data/NekoQA-10K/` 目录。

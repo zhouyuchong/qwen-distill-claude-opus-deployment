@@ -1,5 +1,5 @@
 """
-Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distilled Demo
+Qwen3.5 Claude-4.6-Opus-Reasoning-Distilled Demo
 支持纯文本对话和图片理解（多模态）
 """
 import argparse
@@ -7,30 +7,37 @@ import torch
 import time
 from transformers import Qwen3_5ForConditionalGeneration, AutoTokenizer, AutoProcessor, TextStreamer, BitsAndBytesConfig
 from PIL import Image
-import pynvml
+from pynvml import nvmlInit, nvmlShutdown, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
 
 
-MODEL_PATH = "/workspace/models"
+MODEL_PATH = "/root/models"
+
+MODEL_SELECTION = {
+    "4B": "/root/models/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-v2",
+    "9B": "/root/models/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled",
+}
 
 
 class GPUMonitor:
-    def __init__(self):
+    def __init__(self, gpu_index: int = 0):
+        self.gpu_index = gpu_index
         self.peak_memory_allocated = 0
         self.peak_memory_reserved = 0
+        self.has_nvml = False
         try:
-            pynvml.nvmlInit()
-            self.handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+            nvmlInit()
+            self.handle = nvmlDeviceGetHandleByIndex(gpu_index)
             self.has_nvml = True
-        except:
-            self.has_nvml = False
-    
+        except Exception:
+            pass
+
     def update_peak(self):
         if torch.cuda.is_available():
             allocated = torch.cuda.max_memory_allocated() / 1024**3
             reserved = torch.cuda.max_memory_reserved() / 1024**3
             self.peak_memory_allocated = max(self.peak_memory_allocated, allocated)
             self.peak_memory_reserved = max(self.peak_memory_reserved, reserved)
-    
+
     def get_stats(self):
         stats = {}
         if torch.cuda.is_available():
@@ -40,20 +47,20 @@ class GPUMonitor:
             stats["peak_reserved_gb"] = self.peak_memory_reserved
         if self.has_nvml:
             try:
-                info = pynvml.nvmlDeviceGetMemoryInfo(self.handle)
+                info = nvmlDeviceGetMemoryInfo(self.handle)
                 stats["gpu_total_gb"] = info.total / 1024**3
                 stats["gpu_used_gb"] = info.used / 1024**3
                 stats["gpu_free_gb"] = info.free / 1024**3
-            except:
+            except Exception:
                 pass
         return stats
-    
+
     def print_stats(self, prefix=""):
         stats = self.get_stats()
         print(f"{prefix}=== GPU Memory Stats ===")
         for k, v in stats.items():
             print(f"{prefix}  {k}: {v:.2f}")
-    
+
     def reset_peak(self):
         self.peak_memory_allocated = 0
         self.peak_memory_reserved = 0
@@ -61,7 +68,7 @@ class GPUMonitor:
             torch.cuda.reset_peak_memory_stats()
 
 
-monitor = GPUMonitor()
+monitor = GPUMonitor(gpu_index=0)
 
 
 def load_model(model_path: str):
@@ -180,15 +187,18 @@ def interactive_mode(model, processor):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled Demo")
-    parser.add_argument("--model_path", type=str, default=MODEL_PATH, help="模型路径")
+    parser = argparse.ArgumentParser(description="Qwen3.5 Claude-4.6-Opus-Reasoning-Distilled Demo")
+    parser.add_argument("--model", type=str, default="9B", choices=["4B", "9B"], help="模型大小 (默认 9B)")
+    parser.add_argument("--model_path", type=str, default=None, help="模型路径（优先于 --model）")
     parser.add_argument("--prompt", type=str, default=None, help="单次对话 prompt")
     parser.add_argument("--image", type=str, default=None, help="图片路径（可选）")
     parser.add_argument("--max_new_tokens", type=int, default=2048)
     parser.add_argument("--interactive", action="store_true", help="交互式模式")
     args = parser.parse_args()
 
-    model, processor = load_model(args.model_path)
+    model_path = args.model_path if args.model_path else MODEL_SELECTION[args.model]
+    print(f"Using model: {args.model} -> {model_path}")
+    model, processor = load_model(model_path)
 
     if args.interactive:
         interactive_mode(model, processor)
