@@ -3,7 +3,7 @@
  * @Date: 2026-03-30 17:17:23
  * @Description: 
  * @LastEditors: zhouyuchong
- * @LastEditTime: 2026-04-08 15:10:00
+ * @LastEditTime: 2026-04-09 09:41:15
  -->
 # qwen-distill-claude-opus-deployment
 
@@ -68,3 +68,6 @@ python demo.py --prompt "your prompt"
 模型路径：`/workspace/models`
 
 需要修改脚本中的 `MODEL_PATH` 或通过 `--model_path` 参数指定。
+
+
+使用vllm时，需要apt install build-essential

@@ -1,4 +1,4 @@
-version: '3.8'
+# version: '3.8'
 
 services:
   qwen:
@@ -27,13 +27,13 @@ services:
       - .:/root/workspace/project
       
       # 模型目录（直接挂载你已有的模型）
-      - /home/damonzzz/models/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled:/workspace/models
+      - /home/damonzzz/models:/root/workspace/models
       
       # Hugging Face 缓存
       - hf-cache:/root/.cache/huggingface
       
-      # 日志目录
-      - ./logs:/root/workspace/logs
+      # # 日志目录
+      # - ./logs:/root/workspace/logs
     
     # 环境变量
     environment:
